@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Update and install node and npm
+apt-get update
+apt-get install -y nodejs
+apt-get install -y npm

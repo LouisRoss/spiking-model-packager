@@ -1,0 +1,30 @@
+{
+  "name": "spiking-model-package",
+  "version": "1.0.0",
+  "description": "Spiking Neural Network model packager",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node model-packager.js",
+    "dev": "nodemon model-packager.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LouisRoss/spiking-model-package.git"
+  },
+  "keywords": [],
+  "author": "Louis Ross",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/LouisRoss/spiking-model-package/issues"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "http-proxy-middleware": "^2.0.1",
+    "serve-favicon": "^2.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.12"
+  },
+  "homepage": "https://github.com/LouisRoss/spiking-model-package#readme"
+}
