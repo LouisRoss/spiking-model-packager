@@ -9,17 +9,14 @@ WORKDIR /usr/src/app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY ["package.json", "package-lock.json", "./"]
 COPY install-deps ./
 
 RUN     echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN     bash ./install-deps >>install-deps.log
 
 
-COPY ["package.json", "package-lock.json", "./"]
 RUN ls
-#RUN npm install --production
-RUN npm install
-RUN npm install
 
 #COPY . .
 
