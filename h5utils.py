@@ -1,98 +1,62 @@
 import sys
 import json
 import requests
-from proxyurl import ProxyUrl
-
+from h5Rest import h5Rest
 
 class h5model:
   rootId = ""
   groups = {}
   datasets = {}
   modelName = ""
-  templatesGroupId = ""
-  expansionsGroupId = ""
-  persistHost = ""
-  persistPort = ""
-  persistBaseDomain = ""
-  headers = { 'Accept': 'application/json' }
+  templatesGroupId = None
+  expansionsGroupId = None
   configuration = None
-  urlConverter = None
   responseStatus = 200
   responseSuccessPayload = ""
   errorMessage = ""
+  restManager = None
 
   def __init__(self, modelName):
+    self.restManager = h5Rest(modelName)
     self.modelName = modelName
     self.failureReason = ""
 
     f = open('/configuration/configuration.json')
     self.configuration = json.load(f)
 
-    self.persistHost = self.configuration["services"]["modelPersist"]["host"]
-    self.persistPort = self.configuration["services"]["modelPersist"]["port"]
-    self.persistBaseDomain = self.configuration["services"]["modelPersist"]["basedomain"]
-    self.urlConverter = ProxyUrl(self.persistHost, self.persistPort)
+    if (len(modelName) > 0):
+      modelRest = self.restManager.getRest("", True)
+      if modelRest.status_code == 200:
+        self.rootId = modelRest.json()['root']
 
-  def getRest(self, url, addHost=False):
-    proxyUrl = self.urlConverter.ComposeProxy(url + '?host=' + self.modelDomain() if addHost else url)
-    #print('GETting from URL: ' + proxyUrl)
+        rootGroupRest = self.restManager.getRest("/groups/" + self.rootId + "/links", True)
+        if rootGroupRest.status_code == 200:
+          rootGroup = rootGroupRest.json()
+          rootTemplatesLink = next((x for x in rootGroup["links"] if x["title"] == "templates"), None)
+          self.templatesGroupId = rootTemplatesLink["id"] if rootTemplatesLink else None
+          rootExpansionsLink = next((x for x in rootGroup["links"] if x["title"] == "expansions"), None)
+          self.expansionsGroupId = rootExpansionsLink["id"] if rootExpansionsLink else None
 
-    response = requests.get(proxyUrl, headers=self.headers).json()
-    #print(response)
-    #print()
-    return response
-
-  def putRest(self, url, data, addHost=False):
-    proxyUrl = self.urlConverter.ComposeProxy(url + '?host=' + self.modelDomain() if addHost else url)
-    print('PUTting to URL: ' + proxyUrl)
-
-    response = requests.put(proxyUrl, headers=self.headers, data=data)
-    #print(response)
-    #print()
-    return response
-
-  def postRest(self, url, data, addHost=False):
-    headers = self.headers
-    headers['host'] = self.modelDomain()
-    proxyUrl = self.urlConverter.ComposeProxy(url)
-    print('POSTting to URL: ' + proxyUrl)
-
-    response = requests.post(proxyUrl, headers=headers, data=data)
-    #print(response)
-    #print()
-    return response
-
-  def deleteRest(self, url, addHost=False):
-    proxyUrl = self.urlConverter.ComposeProxy(url + '?host=' + self.modelDomain() if addHost else url)
-    print('DELETEing URL: ' + proxyUrl)
-
-    response = requests.delete(proxyUrl, headers=self.headers)
-    #print(response)
-    #print()
-    return response
-
-  def getRestStep(self, url, key, addHost=False):
-    response = self.getRest(url, addHost)
-    hrefElement = next((x for x in response["hrefs"] if x["rel"] == key), None)
-    return hrefElement
-
-  def modelBaseUrl(self):
-    return self.persistHost + ":" + self.persistPort
-
-  def modelDomain(self):
-    return self.modelName + '.' + self.persistBaseDomain
 
   def getExistingModels(self):
     # Get the starting REST response, extract the group base element.
-    groupBase = self.getRest(self.modelBaseUrl())
-    if groupBase == None:
-      self.errorMessage = "Starting REST response contains no href for 'groupbase'"
+    groupBaseRest = self.restManager.getRest("")
+    if groupBaseRest.status_code != 200:
+      self.errorMessage = "Starting REST response contains no root link"
       responseStatus = 500
+      return
 
     # Get the group base root links REST response, extract the list of domain links.
     # NOTE: domains in H5serv are individual files, which represent individual models.
+    groupBase = groupBaseRest.json()
     rootId = groupBase["root"]
-    rootLinkResponse = self.getRest(self.modelBaseUrl() + "/groups/" + rootId + "/links")
+    rootLinkeRest = self.restManager.getRest("/groups/" + rootId + "/links")
+    if rootLinkeRest.status_code != 200:
+      self.errorMessage = "Root link REST response contains no sub-links"
+      responseStatus = 500
+      return
+
+    rootLinkResponse = rootLinkeRest.json()
     domainLinks = rootLinkResponse["links"]
 
     #print([x["title"] for x in domainLinks])
@@ -100,27 +64,39 @@ class h5model:
     self.responseStatus = 200
 
   def initializeModel(self):
-    modelRest = self.getRest(self.modelBaseUrl(), True)
-    self.rootId = modelRest['root']
-    print("Model '" + self.modelName + "' root Id = " + str(self.rootId))
-
     data = { 'link': { 'id': self.rootId, 'name': 'templates' }}
-    response = self.postRest(self.modelBaseUrl() + '/groups', json.dumps(data), True)
+    response = self.restManager.postRest('/groups', json.dumps(data), True)
     print('Response from creating /templates group: ' + str(response.status_code) + ' = ' + response.reason)
     if response.ok:
       print(response.json())
       self.templatesGroupId = response.json()["id"]
 
-
     data = { 'link': { 'id': self.rootId, 'name': 'expansions' }}
-    response = self.postRest(self.modelBaseUrl() + '/groups', json.dumps(data), True)
+    response = self.restManager.postRest('/groups', json.dumps(data), True)
     print('Response from creating /expansions group: ' + str(response.status_code) + ' = ' + response.reason)
     if response.ok:
       print(response.json())
       self.expansionsGroupId = response.json()["id"]
       data = { 'type': 'H5T_STD_I32LE', 'value': '0' }
-      response = self.putRest(self.modelBaseUrl() + '/groups/' + self.expansionsGroupId + '/attributes/maxindex', json.dumps(data), True)
+      response = self.restManager.putRest('/groups/' + self.expansionsGroupId + '/attributes/maxindex', json.dumps(data), True)
       print('Response from creating /expansions group attribute maxindex: ' + str(response.status_code) + ' = ' + response.reason)
+
+  def getExistingTemplates(self):
+    if not self.templatesGroupId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'templates' group"
+      self.responseStatus = 503
+      return
+    
+    templatesRest = self.restManager.getRest("/groups/" + self.templatesGroupId + "/links", True)
+    if templatesRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'templates' group contains no sub-links"
+      self.responseStatus = 503
+      return
+
+    templatesLinks = templatesRest.json()["links"]
+    self.responseSuccessPayload = [link["title"] for link in templatesLinks]
+    self.responseStatus = 200
+
 
   def createModel(self):
     #models = self.getExistingModels()
@@ -129,8 +105,10 @@ class h5model:
     #if modelExists:
     #  return 0
 
-    response = self.putRest(self.modelBaseUrl(), None, True)
-    if response.status_code == 201:
+    responseRest = self.restManager.putRest("", None, True)
+    if responseRest.status_code == 201:
+      response = responseRest.json()
+      self.rootId = response["root"]
       self.initializeModel()
       return 0
     elif response.status_code == 409:
@@ -141,9 +119,91 @@ class h5model:
       return 1
 
   def deleteModel(self):
-    response = self.deleteRest(self.modelBaseUrl(), True)
+    response = self.restManager.deleteRest("", True)
 
     print(response)
     return 0
 
+  def addTemplateToModel(self, templateName, template):
+    if not self.templatesGroupId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'templates' group"
+      self.responseStatus = 503
+      return
+    
+    templatesRest = self.restManager.getRest("/groups/" + self.templatesGroupId + "/links", True)
+    if templatesRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'templates' group contains no sub-links"
+      self.responseStatus = 503
+      return
 
+    templatesLinks = templatesRest.json()["links"]
+    templateLink = next((x for x in templatesLinks if x["title"] == templateName), None)
+    if templateLink:
+      self.responseSuccessPayload = ["Template " + templateName + " already exists for model " + self.modelName]
+      self.responseStatus = 200
+      return
+
+    templateData = {
+      "type": {
+          "class": "H5T_STRING",
+          "length": "H5T_VARIABLE",
+          "charSet": "H5T_CSET_ASCII",
+          "strpad": "H5T_STR_NULLTERM"
+      },
+      "shape": [1],
+      "link": {
+          "id": self.templatesGroupId,
+          "name": templateName
+      }
+    }
+
+    dataSetRest = self.restManager.postRest('/datasets', json.dumps(templateData), True)
+    if dataSetRest.status_code != 201:
+      self.errorMessage = "Unable to add template " + templageName + " to Model file for '" + self.modelName
+      self.responseStatus = 503
+      return
+
+    dataSetResponse = dataSetRest.json()
+    dataSetId = dataSetResponse["id"]
+
+    payload = { "value": json.dumps(template) }
+    dataValueRest = self.restManager.putRest('/datasets/' + dataSetId + '/value', json.dumps(payload), True)
+
+  def addExpansionToModel(self, expansionName, expansion):
+    if not self.expansionsGroupId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'expansions' group"
+      self.responseStatus = 503
+      return
+    
+    expansionsRest = self.restManager.getRest("/groups/" + self.expansionsGroupId + "/links", True)
+    if expansionsRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group contains no sub-links"
+      self.responseStatus = 503
+      return
+
+    dataSetId = ""
+    expansionsLinks = expansionsRest.json()["links"]
+    expansionLink = next((x for x in expansionsLinks if x["title"] == expansionName), None)
+    if expansionLink:
+      dataSetId = expansionLink["id"]
+    else:
+      expansionData = {
+        "type": "H5T_IEEE_F32LE",
+        "shape": [len(expansion), 3],
+        "link": {
+            "id": self.expansionsGroupId,
+            "name": expansionName
+        }
+      }
+
+      dataSetRest = self.restManager.postRest('/datasets', json.dumps(expansionData), True)
+      if dataSetRest.status_code != 201:
+        self.errorMessage = "Unable to add expansion " + expansionName + " to Model file for '" + self.modelName
+        self.responseStatus = 503
+        return
+
+      dataSetResponse = dataSetRest.json()
+      dataSetId = dataSetResponse["id"]
+
+    payload = { "value": expansion }
+    dataValueRest = self.restManager.putRest('/datasets/' + dataSetId + '/value', json.dumps(payload), True)

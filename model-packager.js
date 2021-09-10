@@ -8,6 +8,8 @@ const fs = require('fs');
 var singleton = require('./routehandlers/inprogress');
 const inprogress = singleton.getInstance();
 const getModels = require('./routehandlers/getmodels');
+const getTemplates = require('./routehandlers/gettemplates');
+const getModelTemplates = require('./routehandlers/getmodeltemplates');
 const getModelProgress = require('./routehandlers/getmodelprogress');
 const getPackageProgress = require('./routehandlers/getpackageprogress');
 const putPackage = require('./routehandlers/putpackage');
@@ -24,8 +26,14 @@ app.use(cors());
 
 const router = express.Router();
 
-// Check on model creation progress for previous POST model.
+// Get the list of models that currently exist.
 router.get('/models', [getModels]);
+
+// Get the list of templates.
+router.get('/templates', [getTemplates]);
+
+// Get the list of templates for a specified model.
+router.get('/model/:modelId/templates', [getModelTemplates]);
 
 // Check on model creation progress for previous POST model.
 router.get('/model/progress/:modelId', [getModelProgress]);
@@ -34,7 +42,7 @@ router.get('/model/progress/:modelId', [getModelProgress]);
 router.get('/package/progress/:packageId', [getPackageProgress]);
 
 // Accept the two parameters template= and model=, and expand the specified template, adding the expansion to the specified model.
-router.put('/package', [putPackage]);
+router.put('/package/:modelName', [putPackage]);
 
 // Accept the URL parameter modelName, and create the specified empty model.
 router.post('/model/:modelName', [postModel]);

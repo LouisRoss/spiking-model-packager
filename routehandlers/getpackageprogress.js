@@ -10,6 +10,7 @@ var getPackageProgress = function(req, res) {
     var response = {
       status: progress.status,
       completed: progress.completed,
+      results: progress.results,
       link: `${req.protocol}://${req.get('Host')}/package/progress/${packageId}`
     };
     res.json(response);
