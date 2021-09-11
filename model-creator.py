@@ -8,7 +8,10 @@ if len(sys.argv) < 2:
 
 modelName = sys.argv[1]
 
-print("Creating new model '" + modelName + "'")
-
 model = h5model(modelName)
-models = model.createModel()
+model.createModel()
+if model.responseStatus >= 400:
+  print("Unable to create model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+  exit(1)
+
+print(model.responseSuccessPayload)

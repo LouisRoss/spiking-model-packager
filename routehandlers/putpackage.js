@@ -44,7 +44,7 @@ var package = function (packageId, modelName, progressPerPolicy, policies) {
       console.log(`error: ${error.message}`);
       inprogress[packageId].results.push(`Packaging error for ${policy}` + error.message);
       if (stderr) {
-        console.log(`stderr: ${stderr}`);
+        console.error(`stderr: ${stderr}`);
       }
     } else {
       inprogress[packageId].results.push(`Packaging complete with no error for ${policy}`);

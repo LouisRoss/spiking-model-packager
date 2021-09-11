@@ -8,7 +8,14 @@ if len(sys.argv) < 2:
 
 modelName = sys.argv[1]
 
-print("Deleting model '" + modelName + "'")
-
 model = h5model(modelName)
+if not model.rootId:
+  print("Model file for '" + modelName + "' not found", file = sys.stderr)
+  exit(1)
+
 models = model.deleteModel()
+if model.responseStatus >= 400:
+  print("Unable to delete model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+  exit(1)
+
+print(model.responseSuccessPayload)

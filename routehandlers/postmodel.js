@@ -20,7 +20,7 @@ var postModel = function(req, res) {
         console.log(`stderr: ${stderr}`);
       }
     } else {
-      inprogress[modelId].status = `Model creation for '${modelName}' complete with no error`;
+      inprogress[modelId].status = `Model creation for '${modelName}' complete with no error: ${stdout}`;
       console.log(`stdout: ${stdout}`);
     }
     inprogress[modelId].completed = true;

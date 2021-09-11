@@ -1,16 +1,18 @@
 import sys
 import scipy.stats as stats
 import random
+from pathlib import Path
 import json
 from h5utils import h5model
 
+# Validate the arguments, load the common configuration, and the template file.
 if len(sys.argv) < 3:
-  print('Usage: ' + sys.argv[0] + ' <model> ' + '<template file>')
+  print('Usage: ' + sys.argv[0] + ' <model> ' + '<template file>', file = sys.stderr)
   exit(1)
 
-f = open('/configuration/configuration.json')
-configuration = json.load(f)
-print(configuration)
+with open('/configuration/configuration.json') as f:
+  configuration = json.load(f)
+#print(configuration)
 
 modelName = sys.argv[1]
 print('Expanding a template into model ' + modelName)
@@ -19,16 +21,24 @@ templateFile = sys.argv[2]
 if (not(templateFile.endswith('json'))):
   templateFile += '.json'
 
-templateFilePath = '/templates/' + templateFile
-print('Expanding template file ' + templateFilePath)
+templateFilePath = Path('/templates/' + templateFile)
+if not templateFilePath.is_file():
+  print("Template '" + sys.argv[2] + "' does not exist", file = sys.stderr)
+  exit(1)
 
-f = open(templateFilePath)
-template = json.load(f)
+print('Expanding template file ' + templateFilePath.as_posix())
+
+with templateFilePath.open() as f:
+  template = json.load(f)
 #print(template)
 
+# We will need a persistence object specific to the specified model.
 model = h5model(modelName)
-model.addTemplateToModel(sys.argv[2], template)
+if not model.rootId:
+  print("Model file for '" + modelName + "' not found", file = sys.stderr)
+  exit(1)
 
+# Calculate the total neurons needed plus the starting offset and count for each population.
 nextIndex = 0
 neuronIndexes = {}
 
@@ -38,9 +48,15 @@ for neuron in neurons:
   for dim in neuron["dims"]:
     count *= dim
   neuronIndexes[neuron["name"]] = { "index": nextIndex, "count": count }
+  neuron["index"] = nextIndex
+  neuron["count"] = count
   nextIndex += count
 
 #print(neuronIndexes)
+model.addTemplateToModel(sys.argv[2], template)
+if model.responseStatus >= 400:
+  print("Unable to add template '" + templateFile + "' to model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+  exit(1)
 
 connections = []
 for policy in template["policies"]:
@@ -61,4 +77,7 @@ for policy in template["policies"]:
     connections.append([sourceIndex, targetIndex, connectionStrengths[i] / 1000.0])
 
 #print(connections)
-model.addExpansionToModel(sys.argv[2], connections)
+model.addExpansionToModel(sys.argv[2], nextIndex, connections)
+if model.responseStatus >= 400:
+  print("Unable to add expansion of template '" + templateFile + "' to model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+  exit(1)
