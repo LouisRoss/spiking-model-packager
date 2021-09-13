@@ -14,10 +14,25 @@ var putPackage = function(req, res) {
   
   const packageId = uuidv4();
   const controller = new AbortController();
+  const { signal } = controller;
   inprogress[packageId] = { controller, completed: false, progress: 0, status: "Packaging in progress", results: [] };
-  const progressPerPolicy = Math.round(100 / req.body.length);
+  exec(`python template-population.py ${modelName} ${req.body.join(" ")}`, { signal }, (error, stdout, stderr) => {
+    if (error) {
+      console.log(`error: ${error.message}`);
+      inprogress[packageId].status = `Model packaging error for model '${modelName}'` + error.message;
+      if (stderr) {
+        console.log(`stderr: ${stderr}`);
+      }
+    } else {
+      inprogress[packageId].status = stdout;
+      console.log(stdout);
+    }
+    inprogress[packageId].completed = true;
+  });
 
-  setTimeout(package, 100, packageId, modelName, progressPerPolicy, req.body);
+
+  //const progressPerPolicy = Math.round(100 / req.body.length);
+  //setTimeout(package, 100, packageId, modelName, progressPerPolicy, req.body);
   
   var response = {
     response: `Started packaging template to model ${modelName}`,

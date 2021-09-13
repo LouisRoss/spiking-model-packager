@@ -8,6 +8,7 @@ class h5model:
   groups = {}
   datasets = {}
   modelName = ""
+  populationDatasetId = None
   templatesGroupId = None
   expansionsGroupId = None
   configuration = None
@@ -37,6 +38,8 @@ class h5model:
           self.templatesGroupId = rootTemplatesLink["id"] if rootTemplatesLink else None
           rootExpansionsLink = next((x for x in rootGroup["links"] if x["title"] == "expansions"), None)
           self.expansionsGroupId = rootExpansionsLink["id"] if rootExpansionsLink else None
+          rootPopulationLink = next((x for x in rootGroup["links"] if x["title"] == "population"), None)
+          self.populationDatasetId = rootPopulationLink["id"] if rootPopulationLink else None
 
 
   def getExistingModels(self):
@@ -67,6 +70,30 @@ class h5model:
   def initializeModel(self):
     """ Immediately after a new model file is created, it must be initialized here.
     """
+
+    # Create the population dataset at the root.  This is a strigified Json object with information about all templates in the model.
+    populationData = {
+      "type": {
+          "class": "H5T_STRING",
+          "length": "H5T_VARIABLE",
+          "charSet": "H5T_CSET_ASCII",
+          "strpad": "H5T_STR_NULLTERM"
+      },
+      "shape": [1],
+      "link": {
+          "id": self.rootId,
+          "name": "population"
+      }
+    }
+
+    dataSetRest = self.restManager.postRest('/datasets', json.dumps(populationData), True)
+    if dataSetRest.status_code != 201:
+      self.errorMessage = "Unable to add template " + templateName + " to Model file for '" + self.modelName
+      self.responseStatus = 503
+      return
+
+    dataSetResponse = dataSetRest.json()
+    self.populationDatasetId = dataSetResponse["id"]
 
     # Create the templates group as a subgroup of the root.
     data = { 'link': { 'id': self.rootId, 'name': 'templates' }}
@@ -99,22 +126,27 @@ class h5model:
     self.responseSuccessPayload = "Successfully created model '" + self.modelName + "'"
     self.responseStatus = 200
 
+
   def getExistingTemplates(self):
     """ Get a list containing the existing templates for this model.
     """
-    if not self.templatesGroupId:
-      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'templates' group"
+    if not self.populationDatasetId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'population' dataset"
       self.responseStatus = 503
       return
     
-    templatesRest = self.restManager.getRest("/groups/" + self.templatesGroupId + "/links", True)
-    if templatesRest.status_code != 200:
-      self.errorMessage = "Model file for '" + self.modelName + "' 'templates' group contains no sub-links"
+    populationRest = self.restManager.getRest("/datasets/" + self.populationDatasetId + "/value", True)
+    if populationRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'population' dataset contains no value"
       self.responseStatus = 503
       return
 
-    templatesLinks = templatesRest.json()["links"]
-    self.responseSuccessPayload = [link["title"] for link in templatesLinks]
+    population = populationRest.json()["value"][0]
+    if len(population) == 0:
+      self.responseSuccessPayload = []
+    else:
+      populationJson = json.loads(population)
+      self.responseSuccessPayload = [template["name"] for template in populationJson["templates"]]
     self.responseStatus = 200
 
 
@@ -151,6 +183,41 @@ class h5model:
     self.responseSuccessPayload = "Successfully deleted model '" + self.modelName + "'"
     self.responseStatus = 200
 
+  def updatePopulationInModel(self, population):
+    """ Update the value of the population dataset at the root of the file.
+        population    A Json object containing information about all templates.
+    """
+    payload = { "value": json.dumps(population) }
+    dataValueRest = self.restManager.putRest('/datasets/' + str(self.populationDatasetId) + '/value', json.dumps(payload), True)
+    if dataValueRest.status_code != 200:
+      self.errorMessage = "Unable to add population data to Model file for '" + self.modelName + "'"
+      self.responseStatus = 503
+      return
+
+    self.responseSuccessPayload = "Successfully added population to model '" + self.modelName + "'"
+    self.responseStatus = 201
+
+
+  def getPopulationFromModel(self):
+    """ Extract and return the value of the population dataset at the root of the file.
+        Return a Json object.
+    """
+
+    # Get the value of the population dataset.
+    dataValueRest = self.restManager.getRest('/datasets/' + self.populationDatasetId + '/value', True)
+    if dataValueRest.status_code != 200:
+      self.errorMessage = "Unable to read the population data in Model file for '" + self.modelName + "'"
+      self.responseStatus = 503
+      return None
+
+    dataValue = dataValueRest.json()
+
+    self.responseSuccessPayload = "Successfully returned population data from model '" + self.modelName + "'"
+    self.responseStatus = 200
+
+    return dataValue['value']
+
+
   def addTemplateToModel(self, templateName, template):
     """ Record the named template into persistent store.
         templateName    The name of the template.
@@ -174,7 +241,7 @@ class h5model:
     # If a dataset for the template already exists, we are done.
     templateLink = next((x for x in templatesLinks if x["title"] == templateName), None)
     if templateLink:
-      self.responseSuccessPayload = ["Template " + templateName + " already exists for model " + self.modelName]
+      self.responseSuccessPayload = "Template " + templateName + " already exists for model " + self.modelName
       self.responseStatus = 200
       return
 
@@ -195,7 +262,7 @@ class h5model:
 
     dataSetRest = self.restManager.postRest('/datasets', json.dumps(templateData), True)
     if dataSetRest.status_code != 201:
-      self.errorMessage = "Unable to add template " + templageName + " to Model file for '" + self.modelName
+      self.errorMessage = "Unable to add template " + templateName + " to Model file for '" + self.modelName
       self.responseStatus = 503
       return
 
@@ -212,6 +279,48 @@ class h5model:
 
     self.responseSuccessPayload = "Successfully added template '" + templateName + "' to model '" + self.modelName + "'"
     self.responseStatus = 201
+
+
+  def getTemplateFromModel(self, templateName):
+    """ Extract and return the named template from persistent store.
+        templateName    The name of the template.
+        Returns:        A Json object with the template definition.
+    """
+
+    # Get the /templates group description from the h5serv, and extract the 'links' element.
+    if not self.templatesGroupId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'templates' group"
+      self.responseStatus = 503
+      return None
+    
+    templatesRest = self.restManager.getRest("/groups/" + self.templatesGroupId + "/links", True)
+    if templatesRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'templates' group contains no sub-links"
+      self.responseStatus = 503
+      return None
+
+    templatesLinks = templatesRest.json()["links"]
+
+    # If no dataset for the template exists, we are done.
+    templateLink = next((x for x in templatesLinks if x["title"] == templateName), None)
+    if not templateLink:
+      self.errorMessage = "Template " + templateName + " does not exist in model " + self.modelName
+      self.responseStatus = 503
+      return None
+
+    templateId = templateLink["id"]
+    templateValueRest = self.restManager.getRest("/datasets/" + templateId + "/value", True)
+    if templateValueRest.status_code != 200:
+      self.errorMessage = "Template '" + templateName + "' in model '" + self.modelName + "' has no value: " + templateValueRest.reason
+      self.responseStatus = 503
+      return None
+
+    self.responseSuccessPayload = "Successfully read template '" + templateName + "' from model '" + self.modelName + "'"
+    self.responseStatus = 201
+
+    templateValue = templateValueRest.json()['value']
+    templateValue = templateValue[0]
+    return json.loads(templateValue)
 
 
   def addExpansionToModel(self, expansionName, nextIndex, expansion):
@@ -294,3 +403,47 @@ class h5model:
 
     self.responseSuccessPayload = "Successfully added expansion '" + expansionName + "' to model '" + self.modelName + "'"
     self.responseStatus = 201
+
+
+  def getExpansionFromModel(self, expansionName):
+    """ Extract and return the specified expansion of the named template from persistent store.
+        expansionName   The name of the template that this is an expansion of.
+        Returns:        A Json object with fields for each attribute of the expansion, including the array of connections.
+    """
+
+    # Get the /expansions group description from the h5serv, and extract the 'links' element.
+    if not self.expansionsGroupId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'expansions' group"
+      self.responseStatus = 503
+      return None
+    
+    expansionsRest = self.restManager.getRest("/groups/" + self.expansionsGroupId + "/links", True)
+    if expansionsRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group contains no sub-links"
+      self.responseStatus = 503
+      return None
+
+    expansionsLinks = expansionsRest.json()["links"]
+
+    # Get the expansion dataset named.
+    expansionLink = next((x for x in expansionsLinks if x["title"] == expansionName), None)
+    if not expansionLink:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group does not contain '" + expansionName + "'"
+      self.responseStatus = 503
+      return None
+
+    dataSetId = expansionLink["id"]
+
+    # Add the expansion as the dataset value, either overwriting the old dataset or filling in the new one.
+    dataValueRest = self.restManager.getRest('/datasets/' + dataSetId + '/value', True)
+    if dataValueRest.status_code != 200:
+      self.errorMessage = "Unable to find expansion for template " + expansionName + " data in Model file for '" + self.modelName + "'"
+      self.responseStatus = 503
+      return None
+
+    dataValue = dataValueRest.json()
+
+    self.responseSuccessPayload = "Successfully returned expansion '" + expansionName + "' from model '" + self.modelName + "'"
+    self.responseStatus = 200
+
+    return dataValue['value']
