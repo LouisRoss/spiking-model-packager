@@ -1,0 +1,99 @@
+{
+  "neurons":
+  [
+    {
+      "name": "input",
+      "dims": [10, 10],
+      "height": 0,
+      "import": 0.2,
+      "export": 0.0
+    },
+    {
+      "name": "x",
+      "dims": [10, 10],
+      "height": 1,
+      "import": 0.2,
+      "export": 0.0
+    },
+    {
+      "name": "y",
+      "dims": [10, 10],
+      "height": 2,
+      "import": 0.1,
+      "export": 0.2
+    },
+    {
+      "name": "output",
+      "dims": [10, 10],
+      "height": 3,
+      "import": 0.0,
+      "export": 0.3
+      }
+    ],
+  "policies":
+  [
+    {
+      "source": "input",
+      "target": "x",
+      "fraction": 0.4,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "input",
+      "target": "x",
+      "fraction": 0.1,
+      "mean": -0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "x",
+      "target": "input",
+      "fraction": 0.4,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "input",
+      "target": "y",
+      "fraction": 0.4,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "input",
+      "target": "y",
+      "fraction": 0.1,
+      "mean": -0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "y",
+      "target": "input",
+      "fraction": 0.4,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "x",
+      "target": "y",
+      "fraction": 0.8,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "x",
+      "target": "output",
+      "fraction": 0.2,
+      "mean": 0.8,
+      "sd": 0.2
+    },
+    {
+      "source": "y",
+      "target": "output",
+      "fraction": 0.2,
+      "mean": 0.8,
+      "sd": 0.2
+    }
+  ]
+}
