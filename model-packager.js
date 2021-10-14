@@ -10,6 +10,8 @@ const inprogress = singleton.getInstance();
 const getModels = require('./routehandlers/getmodels');
 const getTemplates = require('./routehandlers/gettemplates');
 const getModelTemplates = require('./routehandlers/getmodeltemplates');
+const getModelPopulation = require('./routehandlers/getmodelpopulation');
+const getModelExpansion = require('./routehandlers/getmodelexpansion');
 const getModelProgress = require('./routehandlers/getmodelprogress');
 const getPackageProgress = require('./routehandlers/getpackageprogress');
 const putPackage = require('./routehandlers/putpackage');
@@ -34,6 +36,12 @@ router.get('/templates', [getTemplates]);
 
 // Get the list of templates for a specified model.
 router.get('/model/:modelId/templates', [getModelTemplates]);
+
+// Get the list of templates for a specified model.
+router.get('/model/:modelId/population', [getModelPopulation]);
+
+// Get the expansion of a specific template for a specified model.
+router.get('/model/:modelName/expansion/:templateSequence', [getModelExpansion]);
 
 // Check on model creation progress for previous POST model.
 router.get('/model/progress/:modelId', [getModelProgress]);

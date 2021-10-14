@@ -40,7 +40,7 @@ class h5Rest:
   def putRest(self, url, data, addHost=False):
     fullUrl = self.modelBaseUrl + url
     fullUrl = fullUrl + '?host=' + self.modelDomain if addHost else fullUrl
-    print('PUTting to URL: ' +fullUrl)
+    print('PUTting to URL: ' + fullUrl)
 
     response = requests.put(fullUrl, headers=self.headers, data=data)
     #print(response)

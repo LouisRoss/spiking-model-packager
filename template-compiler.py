@@ -27,6 +27,7 @@ if not model.rootId:
   print("Model file for '" + modelName + "' not found", file = sys.stderr)
   exit(1)
 
+sequence = 0
 for templateName in templateNames:
   templateFile = templateName
   if (not(templateFile.endswith('json'))):
@@ -63,8 +64,15 @@ for templateName in templateNames:
     print("Unable to add template '" + templateFile + "' to model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
     exit(1)
 
+  model.compileExpansion(templateName, sequence)
+  if model.responseStatus >= 400:
+    print("Unable to compile expansion for template '" + templateFile + "' in model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+    exit(1)
+
+  sequence += 1
+
 population["neuroncount"] = nextIndex
 population["templates"] = populationTemplates
 model.updatePopulationInModel(population)
 
-print("Successfully updated templates " + str(templateNames) + " into model '" + modelName + "'")
+print("Successfully updated and compiled templates " + str(templateNames) + " into model '" + modelName + "'")

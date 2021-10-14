@@ -1,4 +1,6 @@
 import sys
+import scipy.stats as stats
+import random
 import json
 import requests
 from h5Rest import h5Rest
@@ -150,6 +152,28 @@ class h5model:
     self.responseStatus = 200
 
 
+  def getPopulation(self):
+    """ Get the defined population for this model.
+    """
+    if not self.populationDatasetId:
+      self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'population' dataset"
+      self.responseStatus = 503
+      return
+    
+    populationRest = self.restManager.getRest("/datasets/" + self.populationDatasetId + "/value", True)
+    if populationRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'population' dataset contains no value"
+      self.responseStatus = 503
+      return
+
+    population = populationRest.json()["value"][0]
+    if len(population) == 0:
+      self.responseSuccessPayload = []
+    else:
+      self.responseSuccessPayload = json.loads(population)
+    self.responseStatus = 200
+
+
   def createModel(self):
     """ Create a model file for this model object.
     """
@@ -197,25 +221,42 @@ class h5model:
     self.responseSuccessPayload = "Successfully added population to model '" + self.modelName + "'"
     self.responseStatus = 201
 
+  def compileExpansion(self, templateName, sequence):
+    print('Compiling template ' + templateName + ' into model ' + self.modelName + " as sequence " + str(sequence))
+    template = self.getTemplateFromModel(templateName)
 
-  def getPopulationFromModel(self):
-    """ Extract and return the value of the population dataset at the root of the file.
-        Return a Json object.
-    """
+    # Calculate the total neurons needed plus the starting offset and count for each population.
+    nextIndex = 0
+    neuronIndexes = {}
 
-    # Get the value of the population dataset.
-    dataValueRest = self.restManager.getRest('/datasets/' + self.populationDatasetId + '/value', True)
-    if dataValueRest.status_code != 200:
-      self.errorMessage = "Unable to read the population data in Model file for '" + self.modelName + "'"
-      self.responseStatus = 503
-      return None
+    neurons = template["neurons"]
+    for neuron in neurons:
+      count = 1
+      for dim in neuron["dims"]:
+        count *= dim
+      neuronIndexes[neuron["name"]] = { "index": nextIndex, "count": count }
+      nextIndex += count
 
-    dataValue = dataValueRest.json()
+    connections = []
+    for policy in template["policies"]:
+      sourceNeuron = neuronIndexes[policy["source"]]
+      targetNeuron = neuronIndexes[policy["target"]]
+      connectionCount = int(sourceNeuron["count"] * policy["fraction"])
 
-    self.responseSuccessPayload = "Successfully returned population data from model '" + self.modelName + "'"
-    self.responseStatus = 200
+      start = 0
+      end = 1000
+      mu = int(policy["mean"] * 1000)
+      sigma = int(policy["sd"] * 1000)
+      dist = stats.truncnorm((start - mu) / sigma, (end - mu) / sigma, loc=mu, scale=sigma)
+      connectionStrengths = dist.rvs(connectionCount)
 
-    return dataValue['value']
+      for i in range(connectionCount):
+        sourceIndex = random.randrange(sourceNeuron["index"], sourceNeuron["index"] + sourceNeuron["count"])
+        targetIndex = random.randrange(targetNeuron["index"], targetNeuron["index"] + targetNeuron["count"])
+        connections.append([sourceIndex, targetIndex, connectionStrengths[i] / 1000.0])
+
+    #print(connections)
+    self.addExpansionToModel(sequence, templateName, nextIndex, connections)
 
 
   def addTemplateToModel(self, templateName, template):
@@ -241,6 +282,7 @@ class h5model:
     # If a dataset for the template already exists, we are done.
     templateLink = next((x for x in templatesLinks if x["title"] == templateName), None)
     if templateLink:
+      print('Template ' + templateName + ' already exists for model ' + self.modelName + ', not adding')
       self.responseSuccessPayload = "Template " + templateName + " already exists for model " + self.modelName
       self.responseStatus = 200
       return
@@ -260,6 +302,7 @@ class h5model:
       }
     }
 
+    print('Adding template ' + templateName + ' to model ' + self.modelName)
     dataSetRest = self.restManager.postRest('/datasets', json.dumps(templateData), True)
     if dataSetRest.status_code != 201:
       self.errorMessage = "Unable to add template " + templateName + " to Model file for '" + self.modelName
@@ -319,13 +362,13 @@ class h5model:
     self.responseStatus = 201
 
     templateValue = templateValueRest.json()['value']
-    templateValue = templateValue[0]
-    return json.loads(templateValue)
+    return json.loads(templateValue[0])
 
 
-  def addExpansionToModel(self, expansionName, nextIndex, expansion):
+  def addExpansionToModel(self, sequence, expansionName, nextIndex, expansion):
     """ Record the specified expansion of the named template into persistent store.
-        expansionName   The name of the template that this is an expansion of.
+        sequence        A unique sequence number assigned to this expansion.
+        expansionName   The name of the template that this is an expansion of (do we use this?).
         nextIndex       The next number of neurons needed for this expansion.
         expansion       A list of connections.  Each connection is a list in the form of
                         [from, to, strength].
@@ -345,19 +388,21 @@ class h5model:
 
     expansionsLinks = expansionsRest.json()["links"]
 
-    # If the 'expansions' group has an existing dataset link for the specified expansion, use its Id, otherwise make it and use the new Id.
+    # If the 'expansions' group has an existing dataset link for the specified expansion sequence, use its Id, otherwise make it and use the new Id.
     dataSetId = ""
     dataSetCreated = False
-    expansionLink = next((x for x in expansionsLinks if x["title"] == expansionName), None)
+    expansionLink = next((x for x in expansionsLinks if x["title"] == str(sequence)), None)
     if expansionLink:
+      print('An expansion for sequence ' + str(sequence) + ' exists, re-using')
       dataSetId = expansionLink["id"]
     else:
+      print('Creating a new expansion for sequence ' + str(sequence))
       expansionData = {
         "type": "H5T_IEEE_F32LE",
         "shape": [len(expansion), 3],
         "link": {
             "id": self.expansionsGroupId,
-            "name": expansionName
+            "name": str(sequence)
         }
       }
 
@@ -372,6 +417,7 @@ class h5model:
       dataSetCreated = True
 
     # Add the expansion as the dataset value, either overwriting the old dataset or filling in the new one.
+    print('Injecting content into expansion ' + str(sequence))
     payload = { "value": expansion }
     dataValueRest = self.restManager.putRest('/datasets/' + dataSetId + '/value', json.dumps(payload), True)
     if dataValueRest.status_code != 200:
@@ -381,7 +427,6 @@ class h5model:
 
     # Update the 'maxindex' attribute by summing in the count of neurons just added in this expansion.
     if dataSetCreated:
-      print("Getting current value of maxindex attribute")
       maxIndexRest = self.restManager.getRest('/groups/' + self.expansionsGroupId + '/attributes/maxindex', True)
       if maxIndexRest.status_code != 200:
         print('Returned status is ' + str(maxIndexRest.status_code))
@@ -393,6 +438,7 @@ class h5model:
       # NOTE: Although the docs say writing will overwrite an existing attribute, it needs to be deleted first.
       maxIndexAttr = maxIndexRest.json()
       maxindex = maxIndexAttr["value"]
+      print('Updating the value of maxindex attribute from ' + str(maxindex) + ' to ' + str(maxindex + nextIndex))
       data = { 'type': 'H5T_STD_I32LE', 'value': maxindex + nextIndex }
       self.restManager.deleteRest('/groups/' + self.expansionsGroupId + '/attributes/maxindex', True)
       response = self.restManager.putRest('/groups/' + self.expansionsGroupId + '/attributes/maxindex', json.dumps(data), True)
@@ -401,34 +447,40 @@ class h5model:
         self.responseStatus = 503
         return
 
-    self.responseSuccessPayload = "Successfully added expansion '" + expansionName + "' to model '" + self.modelName + "'"
+    self.responseSuccessPayload = "Successfully added expansion '" + str(sequence) + "' to model '" + self.modelName + "'"
     self.responseStatus = 201
 
 
-  def getExpansionFromModel(self, expansionName):
-    """ Extract and return the specified expansion of the named template from persistent store.
-        expansionName   The name of the template that this is an expansion of.
-        Returns:        A Json object with fields for each attribute of the expansion, including the array of connections.
+  def getExpansionFromModel(self, sequence):
+    """ Record the specified expansion of the named template into persistent store.
+        sequence        The unique sequence number assigned to this expansion.
     """
 
     # Get the /expansions group description from the h5serv, and extract the 'links' element.
     if not self.expansionsGroupId:
       self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'expansions' group"
       self.responseStatus = 503
-      return None
+      return
+    
+    # We will need metadata from the population so get that first.
+    self.getPopulation()
+    population = self.responseSuccessPayload
+    templateData = population['templates'][sequence]
     
     expansionsRest = self.restManager.getRest("/groups/" + self.expansionsGroupId + "/links", True)
     if expansionsRest.status_code != 200:
       self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group contains no sub-links"
       self.responseStatus = 503
-      return None
+      return
 
     expansionsLinks = expansionsRest.json()["links"]
 
-    # Get the expansion dataset named.
-    expansionLink = next((x for x in expansionsLinks if x["title"] == expansionName), None)
+    # If the 'expansions' group has an existing dataset link for the specified expansion sequence, use its Id, otherwise make it and use the new Id.
+    dataSetId = ""
+    dataSetCreated = False
+    expansionLink = next((x for x in expansionsLinks if x["title"] == str(sequence)), None)
     if not expansionLink:
-      self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group does not contain '" + expansionName + "'"
+      self.errorMessage = "Model file for '" + self.modelName + "' 'expansions' group does not contain sequence " + str(sequence)
       self.responseStatus = 503
       return None
 
@@ -437,13 +489,23 @@ class h5model:
     # Add the expansion as the dataset value, either overwriting the old dataset or filling in the new one.
     dataValueRest = self.restManager.getRest('/datasets/' + dataSetId + '/value', True)
     if dataValueRest.status_code != 200:
-      self.errorMessage = "Unable to find expansion for template " + expansionName + " data in Model file for '" + self.modelName + "'"
+      self.errorMessage = "Unable to find expansion data for sequence " + str(sequence) + " in Model '" + self.modelName + "'"
       self.responseStatus = 503
       return None
 
-    dataValue = dataValueRest.json()
+    # Formulate the lowest index (starting index for the template) and sum of all counts (total count for the template).
+    startingIndex = 1000000
+    totalCount = 0
+    for i, (layerName, index) in enumerate(templateData['indexes'].items()):
+      startingIndex = startingIndex if startingIndex < index['index'] else index['index']
+      totalCount += index['count']
 
-    self.responseSuccessPayload = "Successfully returned expansion '" + expansionName + "' from model '" + self.modelName + "'"
+    expansionValue = {}
+    expansionValue['startingindex'] = startingIndex
+    expansionValue['totalcount'] = totalCount
+    expansionValue['value'] = dataValueRest.json()['value']
+
+    self.responseSuccessPayload = "Successfully returned expansion for sequence " + str(sequence) + " from model '" + self.modelName + "'"
     self.responseStatus = 200
 
-    return dataValue['value']
+    return expansionValue

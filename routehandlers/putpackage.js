@@ -16,8 +16,8 @@ var putPackage = function(req, res) {
   const controller = new AbortController();
   const { signal } = controller;
   inprogress[packageId] = { controller, completed: false, progress: 0, status: "Packaging in progress", results: [] };
-  exec(`python template-population.py ${modelName} ${req.body.join(" ")}`, { signal }, (error, stdout, stderr) => {
-    if (error) {
+  exec(`python template-compiler.py ${modelName} ${req.body.join(" ")}`, { signal }, (error, stdout, stderr) => {
+      if (error) {
       console.log(`error: ${error.message}`);
       inprogress[packageId].status = `Model packaging error for model '${modelName}'` + error.message;
       if (stderr) {
