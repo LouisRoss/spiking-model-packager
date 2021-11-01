@@ -5,7 +5,7 @@ from h5utils import h5model
 
 # Validate the arguments, load the common configuration, and the template file.
 if len(sys.argv) < 2:
-  print('Usage: ' + sys.argv[0] + ' <model> ' + '[<template1> <template2> ...]', file = sys.stderr)
+  print('Usage: ' + sys.argv[0] + ' <model> ' + '[<population1/template1> <population2/template2> ...]', file = sys.stderr)
   exit(1)
 
 with open('/configuration/configuration.json') as f:
@@ -15,11 +15,23 @@ with open('/configuration/configuration.json') as f:
 modelName = sys.argv[1]
 print('Capturing a template population into model ' + modelName)
 
-templateNames = sys.argv[2:]
+populationNames = []
+templateNames = []
+populationAndTemplatePairs = sys.argv[2:]
+for populationAndTemplatePair in populationAndTemplatePairs:
+  pair = populationAndTemplatePair.split('/')
+  if len(pair) == 1:
+    # For backward compatiblity, can be removed after complete upgrade.
+    populationNames.append('')
+    templateNames.append(pair[0])
+  else:
+    populationNames.append(pair[0])
+    templateNames.append(pair[1])
+
 population = {}
 populationTemplates = []
 nextIndex = 0
-print('Population has ' + str(len(templateNames)) + ' templates')
+print('Population has ' + str(len(populationAndTemplatePairs)) + ' population/template pairs')
 
 # We will need a persistence object specific to the specified model.
 model = h5model(modelName)
@@ -28,7 +40,7 @@ if not model.rootId:
   exit(1)
 
 sequence = 0
-for templateName in templateNames:
+for index, (templateName, populationName) in enumerate(zip(templateNames, populationNames)):
   templateFile = templateName
   if (not(templateFile.endswith('json'))):
     templateFile += '.json'
@@ -57,7 +69,7 @@ for templateName in templateNames:
     neuron["count"] = count
     nextIndex += count
 
-  populationTemplates.append({'name': templateName, 'indexes': neuronIndexes })
+  populationTemplates.append({'template': templateName, 'population': populationName, 'indexes': neuronIndexes })
 
   model.addTemplateToModel(templateName, template)
   if model.responseStatus >= 400:

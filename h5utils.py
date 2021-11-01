@@ -148,7 +148,7 @@ class h5model:
       self.responseSuccessPayload = []
     else:
       populationJson = json.loads(population)
-      self.responseSuccessPayload = [template["name"] for template in populationJson["templates"]]
+      self.responseSuccessPayload = [template["template"] for template in populationJson["templates"]]
     self.responseStatus = 200
 
 
@@ -393,28 +393,33 @@ class h5model:
     dataSetCreated = False
     expansionLink = next((x for x in expansionsLinks if x["title"] == str(sequence)), None)
     if expansionLink:
-      print('An expansion for sequence ' + str(sequence) + ' exists, re-using')
-      dataSetId = expansionLink["id"]
-    else:
-      print('Creating a new expansion for sequence ' + str(sequence))
-      expansionData = {
-        "type": "H5T_IEEE_F32LE",
-        "shape": [len(expansion), 3],
-        "link": {
-            "id": self.expansionsGroupId,
-            "name": str(sequence)
-        }
-      }
-
-      dataSetRest = self.restManager.postRest('/datasets', json.dumps(expansionData), True)
-      if dataSetRest.status_code != 201:
-        self.errorMessage = "Unable to add expansion " + expansionName + " to Model file for '" + self.modelName
+      print('An expansion for sequence ' + str(sequence) + ' exists, deleting')
+      dataSetDeleteRest = self.restManager.deleteRest('/datasets/' + expansionLink["id"], True)
+      if dataSetDeleteRest.status_code != 200:
+        self.errorMessage = "Unable to delete expansion " + expansionName + " to Model file for '" + self.modelName
         self.responseStatus = 503
         return
 
-      dataSetResponse = dataSetRest.json()
-      dataSetId = dataSetResponse["id"]
-      dataSetCreated = True
+
+    print('Creating a new expansion for sequence ' + str(sequence))
+    expansionData = {
+      "type": "H5T_IEEE_F32LE",
+      "shape": [len(expansion), 3],
+      "link": {
+          "id": self.expansionsGroupId,
+          "name": str(sequence)
+      }
+    }
+
+    dataSetRest = self.restManager.postRest('/datasets', json.dumps(expansionData), True)
+    if dataSetRest.status_code != 201:
+      self.errorMessage = "Unable to add expansion " + expansionName + " to Model file for '" + self.modelName
+      self.responseStatus = 503
+      return
+
+    dataSetResponse = dataSetRest.json()
+    dataSetId = dataSetResponse["id"]
+    dataSetCreated = True
 
     # Add the expansion as the dataset value, either overwriting the old dataset or filling in the new one.
     print('Injecting content into expansion ' + str(sequence))
