@@ -66,7 +66,7 @@ class h5model:
     domainLinks = rootLinkRest.json()["links"]
 
     #print([x["title"] for x in domainLinks])
-    self.responseSuccessPayload = domainLinks
+    self.responseSuccessPayload = [domainLink for domainLink in domainLinks if not '_deployments' in domainLink['title']]
     self.responseStatus = 200
 
   def initializeModel(self):

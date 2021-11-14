@@ -3,9 +3,9 @@ const { exec } = require("child_process");
 var singleton = require('./inprogress');
 const inprogress = singleton.getInstance();
 
-var getModelPopulation = function(req, res) {
-  const { modelName } = req.params;
-  exec(`python model-population-getter.py ${modelName}`, (error, stdout, stderr) => {
+var getModelDeloyment = function(req, res) {
+  const { modelName, deploymentName } = req.params;
+  exec(`python model-deployment-getter.py ${modelName} ${deploymentName}`, (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       if (stdout) {
@@ -14,11 +14,11 @@ var getModelPopulation = function(req, res) {
       errorResponse = JSON.parse(stdout);
       res.status(errorResponse.status).send(errorResponse.message)
     } else {
-      console.log(`stdout: ${stdout}`);
+      console.log(`Deployment ${deploymentName} for model ${modelName}: ${stdout}`);
       res.set('Access-Control-Allow-Origin', '*');
       res.json(JSON.parse(stdout));
     }
   });
 }
 
-module.exports = getModelPopulation;
+module.exports = getModelDeloyment;

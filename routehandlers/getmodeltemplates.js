@@ -4,8 +4,8 @@ var singleton = require('./inprogress');
 const inprogress = singleton.getInstance();
 
 var getModelTemplates = function(req, res) {
-  const { modelId } = req.params;
-  exec(`python model-templates-getter.py ${modelId}`, (error, stdout, stderr) => {
+  const { modelName } = req.params;
+  exec(`python model-templates-getter.py ${modelName}`, (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       if (stdout) {

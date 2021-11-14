@@ -1,6 +1,6 @@
 import sys
 import json
-from h5model import h5model
+from h5deployment import h5deployment
 
 if len(sys.argv) < 2:
   print('Usage: ' + sys.argv[0] + ' ' + '<model name>')
@@ -10,11 +10,14 @@ modelName = sys.argv[1]
 
 #print("Getting templates for model '" + modelName + "'")
 
-model = h5model(modelName)
-model.getExistingTemplates()
+modelDep = h5deployment(modelName)
+if modelDep.rootId == None:
+  modelDep.createModelDeployment()
 
-if model.responseStatus < 400:
-  print(json.dumps(model.responseSuccessPayload))
+modelDep.getExistingDeployments()
+
+if modelDep.responseStatus < 400:
+  print(json.dumps(modelDep.responseSuccessPayload))
   exit(0)
 else:
   print(json.dumps({ "message": model.errorMessage, "status": model.responseStatus }))

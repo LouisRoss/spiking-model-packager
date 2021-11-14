@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import json
-from h5utils import h5model
+from h5model import h5model
 
 # Validate the arguments, load the common configuration, and the template file.
 if len(sys.argv) < 2:

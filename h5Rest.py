@@ -13,8 +13,8 @@ class h5Rest:
   configuration = None
 
 
-  def __init__(self, modelName):
-    self.modelName = modelName
+  def __init__(self, fileName):
+    self.fileName = fileName
     self.failureReason = ""
 
     f = open('/configuration/configuration.json')
@@ -25,11 +25,11 @@ class h5Rest:
     self.persistBaseDomain = self.configuration["services"]["modelPersist"]["basedomain"]
 
     self.modelBaseUrl = self.persistHost + ":" + self.persistPort
-    self.modelDomain = self.modelName + '.' + self.persistBaseDomain
+    self.fileDomain = self.fileName + '.' + self.persistBaseDomain
 
   def getRest(self, url, addHost=False):
     fullUrl = self.modelBaseUrl + url
-    fullUrl = fullUrl + '?host=' + self.modelDomain if addHost else fullUrl
+    fullUrl = fullUrl + '?host=' + self.fileDomain if addHost else fullUrl
     #print('GETting from URL: ' + fullUrl)
 
     response = requests.get(fullUrl, headers=self.headers)
@@ -39,7 +39,7 @@ class h5Rest:
 
   def putRest(self, url, data, addHost=False):
     fullUrl = self.modelBaseUrl + url
-    fullUrl = fullUrl + '?host=' + self.modelDomain if addHost else fullUrl
+    fullUrl = fullUrl + '?host=' + self.fileDomain if addHost else fullUrl
     print('PUTting to URL: ' + fullUrl)
 
     response = requests.put(fullUrl, headers=self.headers, data=data)
@@ -49,7 +49,7 @@ class h5Rest:
 
   def postRest(self, url, data, addHost=False):
     headers = self.headers
-    headers['host'] = self.modelDomain
+    headers['host'] = self.fileDomain
     fullUrl = self.modelBaseUrl + url
     print('POSTting to URL: ' + fullUrl)
 
@@ -60,7 +60,7 @@ class h5Rest:
 
   def deleteRest(self, url, addHost=False):
     fullUrl = self.modelBaseUrl + url
-    fullUrl = fullUrl + '?host=' + self.modelDomain if addHost else fullUrl
+    fullUrl = fullUrl + '?host=' + self.fileDomain if addHost else fullUrl
     print('DELETEing URL: ' + fullUrl)
 
     response = requests.delete(fullUrl, headers=self.headers)

@@ -1,6 +1,6 @@
 import sys
 import json
-from h5utils import h5model
+from h5model import h5model
 
 model = h5model("")
 model.getExistingModels()

@@ -1,6 +1,6 @@
 import sys
 import json
-from h5utils import h5model
+from h5model import h5model
 
 if len(sys.argv) < 3:
   print('Usage: ' + sys.argv[0] + ' ' + '<model name> <expansion sequence>')

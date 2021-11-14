@@ -6,7 +6,7 @@ const inprogress = singleton.getInstance();
 
 var deleteModel = function(req, res) {
   const { modelName } = req.params;
-  console.log(`Model packager received DELETE to delete new model '${modelName}'`);
+  console.log(`Model packager received DELETE to delete model '${modelName}'`);
   
   const modelId = uuidv4();
   const controller = new AbortController();
