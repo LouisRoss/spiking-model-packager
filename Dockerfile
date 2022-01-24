@@ -18,8 +18,8 @@ RUN     bash ./install-deps >>install-deps.log
 
 RUN ls
 
-#COPY . .
+COPY . .
 
 EXPOSE 5000
 
-CMD ["bash"]
+CMD ["npm", "start"]
