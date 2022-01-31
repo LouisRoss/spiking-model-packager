@@ -1,12 +1,17 @@
 import sys
 import json
 from h5model import h5model
+from h5deployment import h5deployment
 
 if len(sys.argv) < 2:
   print('Usage: ' + sys.argv[0] + ' ' + '<model name>')
   exit(1)
 
 modelName = sys.argv[1]
+
+modelDep = h5deployment(modelName)
+if modelDep.rootId:
+  modelDep.deleteModelDeployments()
 
 model = h5model(modelName)
 if not model.rootId:

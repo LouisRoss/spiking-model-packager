@@ -227,37 +227,75 @@ class h5model:
 
     # Calculate the total neurons needed plus the starting offset and count for each population.
     nextIndex = 0
-    neuronIndexes = {}
-
-    neurons = template["neurons"]
-    for neuron in neurons:
+    populations = template["neurons"]
+    for population in populations:
       count = 1
-      for dim in neuron["dims"]:
+      for dim in population["dims"]:
         count *= dim
-      neuronIndexes[neuron["name"]] = { "index": nextIndex, "count": count }
+      population.update({ "index": nextIndex, "count": count })
       nextIndex += count
 
     connections = []
     for policy in template["policies"]:
-      sourceNeuron = neuronIndexes[policy["source"]]
-      targetNeuron = neuronIndexes[policy["target"]]
-      connectionCount = int(sourceNeuron["count"] * policy["fraction"])
+      sourcePopulation = next((pop for pop in populations if pop["name"] == policy["source"]), None)
+      targetPopulation = next((pop for pop in populations if pop["name"] == policy["target"]), None)
+      connectionCount = int(sourcePopulation["count"] * policy["fraction"])
 
       start = 0
       end = 1000
-      mu = int(policy["mean"] * 1000)
+      scalefactor = 1000
+      mu = int(policy["mean"] * scalefactor)
+      if mu < 0:
+        mu *= -1
+        scalefactor *= -1
       sigma = int(policy["sd"] * 1000)
       dist = stats.truncnorm((start - mu) / sigma, (end - mu) / sigma, loc=mu, scale=sigma)
-      connectionStrengths = dist.rvs(connectionCount)
+      #connectionStrengths = dist.rvs(connectionCount)
+      #print('Using mu=' + str(mu) + " sigma=" + str(sigma))
 
       for i in range(connectionCount):
-        sourceIndex = random.randrange(sourceNeuron["index"], sourceNeuron["index"] + sourceNeuron["count"])
-        targetIndex = random.randrange(targetNeuron["index"], targetNeuron["index"] + targetNeuron["count"])
-        connections.append([sourceIndex, targetIndex, connectionStrengths[i] / 1000.0])
+        #sourceIndex = random.randrange(sourcePopulation["index"], sourcePopulation["index"] + sourcePopulation["count"])
+        #targetIndex = random.randrange(targetPopulation["index"], targetPopulation["index"] + targetPopulation["count"])
+        #print(' Connection: source=' + str(sourceIndex) + ' target=' + str(targetIndex) + ' strength=' + str(connectionStrengths[i] / scalefactor))
+        #connections.append([sourceIndex, targetIndex, connectionStrengths[i] / scalefactor])
+        sourceNeuron, targetNeurons = self.getTargetFanout(sourcePopulation, targetPopulation, policy["fanout"])
+        connectionStrengths = dist.rvs(len(targetNeurons))
+        connectionIndex = 0
+        for targetNeuron in targetNeurons:
+          connections.append([sourcePopulation["index"] + sourceNeuron, targetPopulation["index"] + targetNeuron, connectionStrengths[connectionIndex] / scalefactor])
+          connectionIndex += 1
 
     #print(connections)
     self.addExpansionToModel(sequence, templateName, nextIndex, connections)
 
+  def getTargetFanout(self, sourcePopulation, targetPopulation, fanout):
+    sourceXMax, sourceYMax = sourcePopulation["dims"]
+    sourceNeuron = [random.randrange(0, sourceXMax - 1), random.randrange(0, sourceYMax - 1)]
+    sourceRatio = [sourceNeuron[0] / sourceXMax, sourceNeuron[1] / sourceYMax]
+
+    targetXMax, targetYMax = targetPopulation["dims"]
+    targetCenter = [sourceRatio[0] * targetXMax, sourceRatio[1] * targetYMax]
+    targetArea =  [targetXMax * fanout, targetYMax * fanout]
+
+    targetXLimits = [int(targetCenter[0] - targetArea[0] / 2), int(targetCenter[0] + targetArea[0] / 2)]
+    if targetXLimits[0] < 0:
+      targetXLimits[0] = 0
+    if targetXLimits[1] >= targetXMax:
+      targetXLimits[1] = targetXMax - 1
+    
+    targetYLimits = [int(targetCenter[1] - targetArea[1] / 2), int(targetCenter[1] + targetArea[1] / 2)]
+    if targetYLimits[0] < 0:
+      targetYLimits[0] = 0
+    if targetYLimits[1] >= targetYMax:
+      targetYLimits[1] = targetYMax - 1
+
+    targetNeurons = []
+    for x in range(targetXLimits[0], targetYLimits[1]):
+      for y in range(targetYLimits[0], targetYLimits[1]):
+        targetNeurons.append(targetXMax * y + x)
+
+    return sourceXMax * sourceNeuron[1] + sourceNeuron[0], targetNeurons
+    
 
   def addTemplateToModel(self, templateName, template):
     """ Record the named template into persistent store.
@@ -455,12 +493,8 @@ class h5model:
     self.responseSuccessPayload = "Successfully added expansion '" + str(sequence) + "' to model '" + self.modelName + "'"
     self.responseStatus = 201
 
-
+"""
   def getExpansionFromModel(self, sequence):
-    """ Record the specified expansion of the named template into persistent store.
-        sequence        The unique sequence number assigned to this expansion.
-    """
-
     # Get the /expansions group description from the h5serv, and extract the 'links' element.
     if not self.expansionsGroupId:
       self.errorMessage = "Model file for '" + self.modelName + "' is malformed, has no 'expansions' group"
@@ -510,7 +544,9 @@ class h5model:
     expansionValue['totalcount'] = totalCount
     expansionValue['value'] = dataValueRest.json()['value']
 
+    # TODO - response can be large - put in responseSuccessPayload rather than returning it.
     self.responseSuccessPayload = "Successfully returned expansion for sequence " + str(sequence) + " from model '" + self.modelName + "'"
     self.responseStatus = 200
 
     return expansionValue
+"""

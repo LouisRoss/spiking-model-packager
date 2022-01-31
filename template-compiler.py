@@ -64,7 +64,7 @@ for index, (templateName, populationName) in enumerate(zip(templateNames, popula
     count = 1
     for dim in neuron["dims"]:
       count *= dim
-    neuronIndexes[neuron["name"]] = { "index": nextIndex, "count": count }
+    neuronIndexes[neuron["name"]] = { "shape": neuron["dims"], "index": nextIndex, "count": count }
     neuron["index"] = nextIndex
     neuron["count"] = count
     nextIndex += count

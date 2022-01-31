@@ -1,24 +1,20 @@
-const { exec } = require("child_process");
-
-var singleton = require('./inprogress');
-const inprogress = singleton.getInstance();
+const h5model = require("./h5model.js");
 
 var getModelExpansion = function(req, res) {
   const { modelName, templateSequence } = req.params;
-  exec(`python model-expansion-getter.py ${modelName} ${templateSequence}`, (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      if (stdout) {
-        console.log(`stdout: ${stdout}`);
+
+  const model = new h5model(modelName, () => {
+    model.getExpansionFromModel(templateSequence, response => {
+      if (model.responseStatus == 200) {
+        console.log(model.responseSuccessPayload);
+        res.set('Access-Control-Allow-Origin', '*');
+        res.json(response);
       }
-      errorResponse = JSON.parse(stdout);
-      res.status(errorResponse.status).send(errorResponse.message)
-    } else {
-      //console.log(`stdout: ${stdout}`);
-      console.log(`Successfully retrieved expansion ${templateSequence} from model '${modelName}'`)
-      res.set('Access-Control-Allow-Origin', '*');
-      res.json(JSON.parse(stdout));
-    }
+      else {
+        console.log(`Status: ${model.responseStatus}, error: ${model.errorMessage}`);
+        res.status(model.responseStatus).send(model.errorMessage)
+      }
+    });
   });
 }
 

@@ -40,7 +40,7 @@ class h5Rest:
   def putRest(self, url, data, addHost=False):
     fullUrl = self.modelBaseUrl + url
     fullUrl = fullUrl + '?host=' + self.fileDomain if addHost else fullUrl
-    print('PUTting to URL: ' + fullUrl)
+    #print('PUTting to URL: ' + fullUrl)
 
     response = requests.put(fullUrl, headers=self.headers, data=data)
     #print(response)
@@ -51,7 +51,7 @@ class h5Rest:
     headers = self.headers
     headers['host'] = self.fileDomain
     fullUrl = self.modelBaseUrl + url
-    print('POSTting to URL: ' + fullUrl)
+    #print('POSTting to URL: ' + fullUrl)
 
     response = requests.post(fullUrl, headers=headers, data=data)
     #print(response)

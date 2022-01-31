@@ -1,3 +1,4 @@
+"""
 import sys
 import json
 from h5model import h5model
@@ -20,3 +21,4 @@ if model.responseStatus < 400:
 else:
   print(json.dumps({ "message": model.errorMessage, "status": model.responseStatus }))
   exit(1)
+"""
