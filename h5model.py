@@ -1,6 +1,7 @@
 import sys
 import scipy.stats as stats
 import random
+import math
 import json
 import requests
 from h5Rest import h5Rest
@@ -273,26 +274,48 @@ class h5model:
     sourceNeuron = [random.randrange(0, sourceXMax - 1), random.randrange(0, sourceYMax - 1)]
     sourceRatio = [sourceNeuron[0] / sourceXMax, sourceNeuron[1] / sourceYMax]
 
-    targetXMax, targetYMax = targetPopulation["dims"]
-    targetCenter = [sourceRatio[0] * targetXMax, sourceRatio[1] * targetYMax]
-    targetArea =  [targetXMax * fanout, targetYMax * fanout]
 
-    targetXLimits = [int(targetCenter[0] - targetArea[0] / 2), int(targetCenter[0] + targetArea[0] / 2)]
+    targetMax = targetPopulation["dims"]
+    targetCenter = [round(sourceRatio[0] * targetMax[0]), round(sourceRatio[1] * targetMax[1])]
+    targetArea = [math.ceil(targetMax[0] * fanout), math.ceil(targetMax[1] * fanout)]
+    if targetArea[0] % 2 == 0:
+      targetArea[0] += 1
+    if targetArea[1] % 2 == 0:
+      targetArea[1] += 1
+
+    # targetArea is now always odd, so (targetArea - 1) / 2 is an integer margin above and below targetCenter.
+    targetXLimits = [int(targetCenter[0] - ((targetArea[0] - 1) / 2)), int(targetCenter[0] + ((targetArea[0] - 1) / 2) + 1)]
     if targetXLimits[0] < 0:
       targetXLimits[0] = 0
-    if targetXLimits[1] >= targetXMax:
-      targetXLimits[1] = targetXMax - 1
-    
-    targetYLimits = [int(targetCenter[1] - targetArea[1] / 2), int(targetCenter[1] + targetArea[1] / 2)]
+    if targetXLimits[1] > targetMax[0]:
+      targetXLimits[1] = targetMax[0]
+
+    targetYLimits = [int(targetCenter[1] - ((targetArea[1] - 1) / 2)), int(targetCenter[1] + ((targetArea[1] - 1) / 2) + 1)]
     if targetYLimits[0] < 0:
       targetYLimits[0] = 0
-    if targetYLimits[1] >= targetYMax:
-      targetYLimits[1] = targetYMax - 1
+    if targetYLimits[1] > targetMax[1]:
+      targetYLimits[1] = targetMax[1]
+
+    #targetXMax, targetYMax = targetPopulation["dims"]
+    #targetCenter = [sourceRatio[0] * targetXMax, sourceRatio[1] * targetYMax]
+    #targetArea =  [targetXMax * fanout, targetYMax * fanout]
+
+    #targetXLimits = [int(targetCenter[0] - targetArea[0] / 2), int(targetCenter[0] + targetArea[0] / 2)]
+    #if targetXLimits[0] < 0:
+    #  targetXLimits[0] = 0
+    #if targetXLimits[1] >= targetXMax:
+    #  targetXLimits[1] = targetXMax - 1
+    
+    #targetYLimits = [int(targetCenter[1] - targetArea[1] / 2), int(targetCenter[1] + targetArea[1] / 2)]
+    #if targetYLimits[0] < 0:
+    #  targetYLimits[0] = 0
+    #if targetYLimits[1] >= targetYMax:
+    #  targetYLimits[1] = targetYMax - 1
 
     targetNeurons = []
-    for x in range(targetXLimits[0], targetYLimits[1]):
+    for x in range(targetXLimits[0], targetXLimits[1]):
       for y in range(targetYLimits[0], targetYLimits[1]):
-        targetNeurons.append(targetXMax * y + x)
+        targetNeurons.append(targetMax[0] * y + x)
 
     return sourceXMax * sourceNeuron[1] + sourceNeuron[0], targetNeurons
     
