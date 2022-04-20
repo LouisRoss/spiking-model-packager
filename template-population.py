@@ -13,7 +13,7 @@ with open('/configuration/configuration.json') as f:
 #print(configuration)
 
 modelName = sys.argv[1]
-print('Capturing a template population into model ' + modelName)
+print('Capturing a template population HO into model ' + modelName)
 
 templateNames = sys.argv[2:]
 population = {}

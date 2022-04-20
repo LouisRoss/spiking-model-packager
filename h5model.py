@@ -25,8 +25,11 @@ class h5model:
     self.modelName = modelName
     self.failureReason = ""
 
-    f = open('/configuration/configuration.json')
-    self.configuration = json.load(f)
+    with open('/configuration/configuration.json') as f:
+      self.configuration = json.load(f)
+
+    with open('/configuration/settings.json') as f:
+      self.settings = json.load(f)
 
     # When enumerating models, we can be created with an empty model name.  This is ok.
     if (len(modelName) > 0):
@@ -91,7 +94,7 @@ class h5model:
 
     dataSetRest = self.restManager.postRest('/datasets', json.dumps(populationData), True)
     if dataSetRest.status_code != 201:
-      self.errorMessage = "Unable to add template " + templateName + " to Model file for '" + self.modelName
+      self.errorMessage = "Unable add 'population' dataset to Model file for '" + self.modelName
       self.responseStatus = 503
       return
 
@@ -254,6 +257,14 @@ class h5model:
       #connectionStrengths = dist.rvs(connectionCount)
       #print('Using mu=' + str(mu) + " sigma=" + str(sigma))
 
+      # Share constants across services in the stack.
+      ConnectionType = self.settings["constants"]["ConnectionType"]
+      connectionType = ConnectionType["Excitatory"]
+      if "type" in policy and policy["type"] in ConnectionType:
+        connectionType = ConnectionType[policy["type"]]
+        print("Found 'type' in policy: " + policy["type"])
+      print("Using connectionType value of " + str(connectionType))
+
       for i in range(connectionCount):
         #sourceIndex = random.randrange(sourcePopulation["index"], sourcePopulation["index"] + sourcePopulation["count"])
         #targetIndex = random.randrange(targetPopulation["index"], targetPopulation["index"] + targetPopulation["count"])
@@ -263,7 +274,7 @@ class h5model:
         connectionStrengths = dist.rvs(len(targetNeurons))
         connectionIndex = 0
         for targetNeuron in targetNeurons:
-          connections.append([sourcePopulation["index"] + sourceNeuron, targetPopulation["index"] + targetNeuron, connectionStrengths[connectionIndex] / scalefactor])
+          connections.append([sourcePopulation["index"] + sourceNeuron, targetPopulation["index"] + targetNeuron, connectionStrengths[connectionIndex] / scalefactor, connectionType])
           connectionIndex += 1
 
     #print(connections)
@@ -465,7 +476,7 @@ class h5model:
     print('Creating a new expansion for sequence ' + str(sequence))
     expansionData = {
       "type": "H5T_IEEE_F32LE",
-      "shape": [len(expansion), 3],
+      "shape": [len(expansion), 4],
       "link": {
           "id": self.expansionsGroupId,
           "name": str(sequence)
