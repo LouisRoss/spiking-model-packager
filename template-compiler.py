@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import json
 from h5model import h5model
+from modelCompiler import modelCompiler
 
 # Validate the arguments, load the common configuration, and the template file.
 if len(sys.argv) < 2:
@@ -76,9 +77,10 @@ for index, (templateName, populationName) in enumerate(zip(templateNames, popula
     print("Unable to add template '" + templateFile + "' to model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
     exit(1)
 
-  model.compileExpansion(templateName, sequence)
-  if model.responseStatus >= 400:
-    print("Unable to compile expansion for template '" + templateFile + "' in model '" + modelName + "': " + model.errorMessage, file = sys.stderr)
+  compiler = modelCompiler(model, templateName, sequence)
+  compiler.Compile(template['method'])
+  if compiler.responseStatus >= 400:
+    print("Unable to compile expansion for template '" + templateFile + "' in model '" + modelName + "': " + compiler.errorMessage, file = sys.stderr)
     exit(1)
 
   sequence += 1
