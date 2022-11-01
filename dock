@@ -7,7 +7,7 @@ docker container run \
 -v "$(pwd)":/usr/src/app \
 -v "$(pwd)/../spiking-model-configuration/configuration/:/configuration" \
 -v "$(pwd)/../spiking-model-configuration/configuration/utils/:/usr/src/app/utils" \
--v "/media/louis/Elements1/spiking-model-templates/:/templates" \
+-v "/media/elements/spiking-model-templates/:/templates" \
 -p 5004:5000 \
 louisross/spiking-model-packager:1.0 \
 bash

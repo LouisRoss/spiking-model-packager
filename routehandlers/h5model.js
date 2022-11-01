@@ -35,6 +35,8 @@ class h5model {
           this.expansionsGroupId = rootExpansionsLink ? rootExpansionsLink.id : undefined;
           const rootPopulationLink = rootGroupResponse.data.links.find(x => x.title === 'population');
           this.populationDatasetId = rootPopulationLink ? rootPopulationLink.id : undefined;
+          const rootConnectionLink = rootGroupResponse.data.links.find(x => x.title === 'connections');
+          this.connectionsDatasetId = rootConnectionLink ? rootConnectionLink.id : undefined;
 
           initHandler();
         });
@@ -148,6 +150,56 @@ class h5model {
         expansionHandler([]);
         return;
       });
+    });
+  }
+
+  //
+  // Get the interconnects from the model.  Return through the callback.
+  //
+  getInterconnectsFromModel(interconnectHandler) {
+    console.log(`Get interconnects from model ${this.modelName}`);
+
+    if (!this.connectionsDatasetId) {
+      this.errorMessage = `Model file for '${this.modelName}' is malformed, has no 'connections' dataset`;
+      interconnectHandler({ 'status': 503, 'result': this.errorMessage} );
+      return;
+    }
+
+    axios.get(this.modelBaseUrl + '/datasets/' + this.connectionsDatasetId + '/value' + '?host=' + this.fileDomain)
+    .then(connectionsDatasetResponse => {
+      var response = JSON.parse(connectionsDatasetResponse.data.value[0]);
+      console.log(response);
+      interconnectHandler({ 'status': 200, 'result': response });
+    })
+    .catch(error => {
+      console.log(error);
+      interconnectHandler({ 'status': 400, 'result': error} );
+    });
+  }
+
+  //
+  // Put the interconnects to the model.  Return through the callback.
+  //
+  putInterconnectsToModel(interconnects, interconnectHandler) {
+    console.log(`Put interconnects to model ${this.modelName}`);
+    console.log(interconnects);
+
+    if (!this.connectionsDatasetId) {
+      this.errorMessage = `Model file for '${this.modelName}' is malformed, has no 'connections' dataset`;
+      interconnectHandler({ 'status': 503, 'result': this.errorMessage} );
+      return;
+    }
+
+    const payload = { 'value': JSON.stringify(interconnects) };
+    const headers = { 'Accept': 'application/json' };
+
+    axios.put(this.modelBaseUrl + '/datasets/' + this.connectionsDatasetId + '/value' + '?host=' + this.fileDomain, payload, headers)
+    .then(connectionsDatasetResponse => {
+      interconnectHandler({ 'status': 201, 'result': "Successfully added interconnects to model '" + this.modelName + "'" });
+    })
+    .catch(error => {
+      console.log(error);
+      interconnectHandler({ 'status': 503, 'result': error} );
     });
   }
 }

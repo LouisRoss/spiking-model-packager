@@ -46,6 +46,8 @@ class h5model:
           self.expansionsGroupId = rootExpansionsLink["id"] if rootExpansionsLink else None
           rootPopulationLink = next((x for x in rootGroup["links"] if x["title"] == "population"), None)
           self.populationDatasetId = rootPopulationLink["id"] if rootPopulationLink else None
+          rootConnectionsLink = next((x for x in rootGroup["links"] if x["title"] == "connections"), None)
+          self.connectionsDatasetId = rootConnectionsLink["id"] if rootConnectionsLink else None
 
 
   def getExistingModels(self):
@@ -55,7 +57,7 @@ class h5model:
     groupBaseRest = self.restManager.getRest("")
     if groupBaseRest.status_code != 200:
       self.errorMessage = "Starting REST response contains no root link"
-      responseStatus = 500
+      self.responseStatus = 500
       return
 
     # Get the group base root links REST response, extract the list of domain links.
@@ -64,7 +66,7 @@ class h5model:
     rootLinkRest = self.restManager.getRest("/groups/" + rootId + "/links")
     if rootLinkRest.status_code != 200:
       self.errorMessage = "Root link REST response contains no sub-links"
-      responseStatus = 500
+      self.responseStatus = 500
       return
 
     domainLinks = rootLinkRest.json()["links"]
@@ -78,7 +80,7 @@ class h5model:
     """
 
     # Create the population dataset at the root.  This is a strigified Json object with information about all templates in the model.
-    populationData = {
+    datasetDescription = {
       "type": {
           "class": "H5T_STRING",
           "length": "H5T_VARIABLE",
@@ -88,11 +90,12 @@ class h5model:
       "shape": [1],
       "link": {
           "id": self.rootId,
-          "name": "population"
+          "name": ""
       }
     }
 
-    dataSetRest = self.restManager.postRest('/datasets', json.dumps(populationData), True)
+    datasetDescription["link"]["name"] = "population"
+    dataSetRest = self.restManager.postRest('/datasets', json.dumps(datasetDescription), True)
     if dataSetRest.status_code != 201:
       self.errorMessage = "Unable add 'population' dataset to Model file for '" + self.modelName
       self.responseStatus = 503
@@ -100,6 +103,16 @@ class h5model:
 
     dataSetResponse = dataSetRest.json()
     self.populationDatasetId = dataSetResponse["id"]
+
+    datasetDescription["link"]["name"] = "connections"
+    dataSetRest = self.restManager.postRest('/datasets', json.dumps(datasetDescription), True)
+    if dataSetRest.status_code != 201:
+      self.errorMessage = "Unable add 'connections' dataset to Model file for '" + self.modelName
+      self.responseStatus = 503
+      return
+
+    dataSetResponse = dataSetRest.json()
+    self.connectionsDatasetId = dataSetResponse["id"]
 
     # Create the templates group as a subgroup of the root.
     data = { 'link': { 'id': self.rootId, 'name': 'templates' }}
@@ -172,7 +185,7 @@ class h5model:
 
     population = populationRest.json()["value"][0]
     if len(population) == 0:
-      self.responseSuccessPayload = []
+      self.responseSuccessPayload = {}
     else:
       self.responseSuccessPayload = json.loads(population)
     self.responseStatus = 200
@@ -421,3 +434,42 @@ class h5model:
 
     self.responseSuccessPayload = "Successfully added expansion '" + str(sequence) + "' to model '" + self.modelName + "'"
     self.responseStatus = 201
+
+  def putInterconnectsToModel(self, interconnects):
+    print('Put interconnects to model ' + self.modelName)
+    print(interconnects)
+
+    if not self.connectionsDatasetId:
+      self.errorMessage = "Model file for " + self.modelName + " is malformed, has no 'connections' dataset"
+      self.responseStatus = 503
+      return
+
+    payload = { "value": json.dumps(interconnects) }
+    interconnectValueRest = self.restManager.putRest('/datasets/' + str(self.connectionsDatasetId) + '/value', json.dumps(payload), True)
+    if interconnectValueRest.status_code != 200:
+      self.errorMessage = "Unable to put interconnects to Model file for '" + self.modelName + "'"
+      self.responseStatus = 503
+      return
+
+    self.responseSuccessPayload = "Successfully added interconnects to model '" + self.modelName + "'"
+    self.responseStatus = 201
+
+  def getInterconnectsFromModel(self):
+    print('Get interconnects from model ' + self.modelName)
+
+    if not self.connectionsDatasetId:
+      self.errorMessage = "Model file for " + self.modelName + " is malformed, has no 'connections' dataset"
+      self.responseStatus = 503
+      return
+
+    connectionsRest = self.restManager.getRest("/datasets/" + self.connectionsDatasetId + "/value", True)
+    if connectionsRest.status_code != 200:
+      self.errorMessage = "Model file for '" + self.modelName + "' 'connections' dataset contains no value"
+      self.responseStatus = 503
+      return
+
+    self.responseSuccessPayload = "Successfully read interconnects from model '" + self.modelName + "'"
+    self.responseStatus = 201
+
+    templateValue = connectionsRest.json()['value']
+    return json.loads(templateValue[0])

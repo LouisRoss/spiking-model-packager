@@ -11,6 +11,7 @@ const getModels = require('./routehandlers/getmodels');
 const getTemplates = require('./routehandlers/gettemplates');
 const getModelTemplates = require('./routehandlers/getmodeltemplates');
 const getModelPopulation = require('./routehandlers/getmodelpopulation');
+const getModel = require('./routehandlers/getmodel');
 const getModelExpansion = require('./routehandlers/getmodelexpansion');
 const getModelProgress = require('./routehandlers/getmodelprogress');
 const getPackageProgress = require('./routehandlers/getpackageprogress');
@@ -22,6 +23,8 @@ const getModelDeployment = require('./routehandlers/getmodeldeployment');
 const putModelDeployment = require('./routehandlers/putmodeldeployment');
 const deleteModelDeployment = require('./routehandlers/deletemodeldeployment');
 const deleteModelDeployments = require('./routehandlers/deletemodeldeployments');
+const getModelInterconnects = require('./routehandlers/getmodelinterconnects');
+const putModelInterconnects = require('./routehandlers/putmodelinterconnects');
 
 
 let rawdata = fs.readFileSync('/configuration/configuration.json');
@@ -42,8 +45,11 @@ router.get('/templates', [getTemplates]);
 // Get the list of templates for a specified model.
 router.get('/model/:modelName/templates', [getModelTemplates]);
 
-// Get the list of templates for a specified model.
+// Get the list of compiled populations for a specified model.
 router.get('/model/:modelName/population', [getModelPopulation]);
+
+// Get the list of raw templates for a specified model.
+router.get('/model/:modelName/model', [getModel]);
 
 // Get the expansion of a specific template for a specified model.
 router.get('/model/:modelName/expansion/:templateSequence', [getModelExpansion]);
@@ -77,6 +83,13 @@ router.delete('/model/:modelName/deployment/:deploymentName', [deleteModelDeploy
 
 // Accept the URL parameter modelName, and delete the deployments from the model.
 router.delete('/model/:modelName/deployments', [deleteModelDeployments]);
+
+// Get the interconnects for a specified model.
+router.get('/model/:modelName/interconnects', [getModelInterconnects]);
+
+// write the interconnects for a specified model.
+router.put('/model/:modelName/interconnects', [putModelInterconnects]);
+
 
 var server = http.createServer(app);
 const PORT = 5000;

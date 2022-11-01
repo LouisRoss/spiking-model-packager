@@ -40,6 +40,11 @@ if not model.rootId:
   print("Model file for '" + modelName + "' not found", file = sys.stderr)
   exit(1)
 
+# Get the interconnections for this model.
+interconnects = model.getInterconnectsFromModel()
+print('Interconnects:')
+print(interconnects)
+
 sequence = 0
 for index, (templateName, populationName) in enumerate(zip(templateNames, populationNames)):
   templateFile = templateName
@@ -78,15 +83,36 @@ for index, (templateName, populationName) in enumerate(zip(templateNames, popula
     exit(1)
 
   compiler = modelCompiler(model, templateName, sequence)
-  compiler.Compile(template['method'])
+  compiler.Compile()
   if compiler.responseStatus >= 400:
     print("Unable to compile expansion for template '" + templateFile + "' in model '" + modelName + "': " + compiler.errorMessage, file = sys.stderr)
     exit(1)
 
+  # Expand index and offset into any From or To elements of the interconnects.
+  interconnectPopulation = populationName + "/" + templateName
+  for interconnect in interconnects:
+    if interconnectPopulation in interconnect['From']:
+      fromSplit = interconnect['From'].partition('@')
+      interconnect['FromIndex'] = sequence
+      interconnect['FromOffset'] = neuronIndexes[fromSplit[0]]['index']
+      interconnect['FromCount'] = neuronIndexes[fromSplit[0]]['count']
+    if interconnectPopulation in interconnect['To']:
+      toSplit = interconnect['To'].partition('@')
+      interconnect['ToIndex'] = sequence
+      interconnect['ToOffset'] = neuronIndexes[toSplit[0]]['index']
+      interconnect['ToCount'] = neuronIndexes[toSplit[0]]['count']
+
   sequence += 1
+
+print('Compiled interconnects')
+print(interconnects)
 
 population["neuroncount"] = nextIndex
 population["templates"] = populationTemplates
 model.updatePopulationInModel(population)
 
 print("Successfully updated and compiled templates " + str(templateNames) + " into model '" + modelName + "'")
+
+model.putInterconnectsToModel(interconnects)
+
+print("Successfully updated interconnects into model '" + modelName + "'")
