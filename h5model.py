@@ -113,6 +113,7 @@ class h5model:
 
     dataSetResponse = dataSetRest.json()
     self.connectionsDatasetId = dataSetResponse["id"]
+    self.putInterconnectsToModel([])
 
     # Create the templates group as a subgroup of the root.
     data = { 'link': { 'id': self.rootId, 'name': 'templates' }}

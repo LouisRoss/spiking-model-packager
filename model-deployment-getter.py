@@ -21,5 +21,5 @@ if modelDep.responseStatus < 400:
   print(json.dumps(modelDep.responseSuccessPayload))
   exit(0)
 else:
-  print(json.dumps({ "message": model.errorMessage, "status": model.responseStatus }))
+  print(json.dumps({ "message": modelDep.errorMessage, "status": modelDep.responseStatus }))
   exit(1)

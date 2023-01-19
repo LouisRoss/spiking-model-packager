@@ -167,7 +167,11 @@ class h5model {
 
     axios.get(this.modelBaseUrl + '/datasets/' + this.connectionsDatasetId + '/value' + '?host=' + this.fileDomain)
     .then(connectionsDatasetResponse => {
-      var response = JSON.parse(connectionsDatasetResponse.data.value[0]);
+      var value = connectionsDatasetResponse.data.value[0];
+      if (value === "") {
+        value = "[]"
+      }
+      var response = JSON.parse(value);
       console.log(response);
       interconnectHandler({ 'status': 200, 'result': response });
     })
