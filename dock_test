@@ -1,0 +1,13 @@
+#!/bin/bash
+echo $(pwd)
+docker container run \
+-it \
+--rm \
+--name=spiking-model-test-packager \
+-v "$(pwd)":/usr/src/app \
+-v "$(pwd)/../spiking-model-configuration/configuration/:/configuration" \
+-v "$(pwd)/../spiking-model-configuration/configuration/utils/:/usr/src/app/utils" \
+-v "/media/elements/spiking-model-templates/:/templates" \
+-p 5104:5000 \
+louisross/spiking-model-packager:1.0 \
+bash

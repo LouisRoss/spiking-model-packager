@@ -403,13 +403,16 @@ class h5model:
     dataSetCreated = True
 
     # Add the expansion as the dataset value, either overwriting the old dataset or filling in the new one.
-    print('Injecting content into expansion ' + str(sequence))
-    payload = { "value": expansion }
-    dataValueRest = self.restManager.putRest('/datasets/' + dataSetId + '/value', json.dumps(payload), True)
-    if dataValueRest.status_code != 200:
-      self.errorMessage = "Unable to add expansion " + expansionName + " data to Model file for '" + self.modelName + "'"
-      self.responseStatus = 503
-      return
+    if len(expansion) == 0:
+      print('No expansion content, not injecting')
+    else:
+      print('Injecting content into expansion ' + str(sequence))
+      payload = { "value": expansion }
+      dataValueRest = self.restManager.putRest('/datasets/' + dataSetId + '/value', json.dumps(payload), True)
+      if dataValueRest.status_code != 200:
+        self.errorMessage = "Unable to add expansion " + expansionName + " data to Model file for '" + self.modelName + "'"
+        self.responseStatus = 503
+        return
 
     # Update the 'maxindex' attribute by summing in the count of neurons just added in this expansion.
     if dataSetCreated:
