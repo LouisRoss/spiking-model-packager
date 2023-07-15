@@ -14,6 +14,7 @@ const getModelPopulation = require('./routehandlers/getmodelpopulation');
 const getModel = require('./routehandlers/getmodel');
 const getModelExpansion = require('./routehandlers/getmodelexpansion');
 const getModelProgress = require('./routehandlers/getmodelprogress');
+const getExpansionProgress = require('./routehandlers/getexpansionprogress');
 const getPackageProgress = require('./routehandlers/getpackageprogress');
 const putPackage = require('./routehandlers/putpackage');
 const postModel = require('./routehandlers/postmodel');
@@ -21,6 +22,7 @@ const deleteModel = require('./routehandlers/deletemodel');
 const getModelDeployments = require('./routehandlers/getmodeldeployments');
 const getModelDeployment = require('./routehandlers/getmodeldeployment');
 const putModelDeployment = require('./routehandlers/putmodeldeployment');
+const putModelExpansion = require('./routehandlers/putmodelexpansion');
 const deleteModelDeployment = require('./routehandlers/deletemodeldeployment');
 const deleteModelDeployments = require('./routehandlers/deletemodeldeployments');
 const getModelInterconnects = require('./routehandlers/getmodelinterconnects');
@@ -33,6 +35,7 @@ console.log(configuration);
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 const router = express.Router();
 
@@ -57,6 +60,9 @@ router.get('/model/:modelName/expansion/:templateSequence', [getModelExpansion])
 // Check on model creation progress for previous POST model.
 router.get('/model/progress/:modelId', [getModelProgress]);
 
+// Check on expansion creation progress for previous PUT expansion.
+router.get('/expansion/progress/:expansionId', [getExpansionProgress]);
+
 // Check on packaging progress for previous PUT package.
 router.get('/package/progress/:packageId', [getPackageProgress]);
 
@@ -77,6 +83,9 @@ router.get('/model/:modelName/deployment/:deploymentName', [getModelDeployment])
 
 // Accept the model name and deployment name, create a deployment within the model deployments.
 router.put('/model/:modelName/deployment/:deploymentName', [putModelDeployment]);
+
+// Accept the expansion of a specific template for a specified model.
+router.put('/model/:modelName/expansion/:templateSequence', [putModelExpansion]);
 
 // Accept the URL parameters modelName and deploymentName, and delete the specified deployment from the model.
 router.delete('/model/:modelName/deployment/:deploymentName', [deleteModelDeployment]);
