@@ -10,16 +10,19 @@ modelName = sys.argv[1]
 templateSequence = int(sys.argv[2])
 expansion = sys.argv[3] if len(sys.argv) > 3 else ['']
 
-print('expansion:')
-print(expansion)
 #print("Putting expansion '" + str(templateSequence) + "' for model '" + modelName + "'")
+jsonExpansion = json.loads(expansion)
+neuronCount = int(jsonExpansion["neuroncount"])
+synapses = jsonExpansion["synapses"]
+print('Neuron count: ' + str(neuronCount) + ', synapses:')
+print(synapses)
 
 model = h5model(modelName)
 if not model.rootId:
   print("Model file for '" + modelName + "' not found", file = sys.stderr)
   exit(1)
 
-model.addExpansionToModel(templateSequence, 'computed', len(expansion), json.loads(expansion))
+model.addExpansionToModel(templateSequence, 'computed', neuronCount, synapses)
 
 if model.responseStatus < 400:
   print(json.dumps(model.responseSuccessPayload))

@@ -16,16 +16,18 @@ var putModelExpansion = function(req, res) {
   }
   console.log(`PUT expansion for model ${modelName}, sequence ${templateSequence}`);
 
-  var expansion = JSON.stringify(req.body);
-  if (!expansion) {
-    expansion = '[]'
+  var expansion_raw = JSON.stringify(req.body);
+  if (!expansion_raw) {
+    expansion_raw = '{"neuroncount":0,"synapses":[]}'
   }
-  console.log(`Expansion: '${expansion}'`);
+  expansion = expansion_raw.replaceAll('"', '\\\"');
+  console.log(`Expansion: '${expansion_raw}'`);
 
   const expansionId = uuidv4();
   const controller = new AbortController();
   const { signal } = controller;
   inprogress[expansionId] = { controller, completed: false, progress: 0, status: "Expansion write in progress", results: [] };
+
   exec(`python model-expansion-putter.py ${modelName} ${templateSequence} ${expansion}`, { signal }, (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
@@ -33,6 +35,7 @@ var putModelExpansion = function(req, res) {
       if (stderr) {
         console.log(`stderr: ${stderr}`);
       }
+      console.log(stdout);
     } else {
       inprogress[expansionId].status = stdout;
       console.log(stdout);
